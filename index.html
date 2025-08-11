@@ -1,38 +1,44 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>Reddit Trends</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <link rel="stylesheet" href="public/style.css" />
-  <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 24px; }
-    h1 { margin: 0 0 12px; font-size: 24px; }
-    form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0 16px; }
-    input, select, button { padding: 8px 10px; font-size: 14px; }
-    #status { font-size: 13px; color: #666; margin: 8px 0 12px; min-height: 18px; }
-    ul { padding-left: 16px; }
-    li + li { margin-top: 6px; }
-    .meta { font-size: 12px; color: #666; }
-    .error { color: #b00020; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reddit Trends</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>Get TOP posts from your favorite subreddits to your inbox daily</h1>
+    <div class="container">
+        <header>
+            <h1>Reddit Trends</h1>
+            <p>Get TOP posts from your favorite subreddits</p>
+        </header>
+        
+        <div class="search-section">
+            <input type="text" id="subredditInput" placeholder="Enter subreddit name (e.g., programming)" value="programming">
+                <select id="timeframeSelect">
+                    <option value="day" selected>Today</option>
+                    <option value="week">This Week</option>
+                    <option value="month">This Month</option>
+                    <option value="year">This Year</option>
+                    <option value="all">All Time</option>
+                </select>
+            <button id="searchBtn">Get Trending Posts</button>
+        </div>
 
-  <form id="search-form" autocomplete="off">
-    <label for="subreddit-input" style="display:none">Subreddit</label>
-    <input id="subreddit-input" type="text" placeholder="e.g., LocalLLaMA or travel" required />
-    <select id="timeframe">
-      <option value="day" selected>Top today</option>
-      <option value="week">Top this week</option>
-    </select>
-    <button type="submit">Get trending posts</button>
-  </form>
-
-  <div id="status"></div>
-  <ul id="results"></ul>
-
-  <script src="public/script.js" defer></script>
+        <div class="subscribe-section">
+            <h2>📧 Get Daily Notifications</h2>
+            <p>Subscribe to get daily emails with top posts from your favorite subreddit</p>
+            <div class="subscribe-form">
+                <input type="email" id="emailInput" placeholder="your@email.com">
+                <button id="subscribeBtn">Subscribe</button>
+            </div>
+            <div id="subscribeMessage" class="subscribe-message"></div>
+        </div>
+        
+        <div id="loading" class="loading" style="display: none;">Loading...</div>
+        <div id="results" class="results"></div>
+    </div>
+    
+    <script src="script.js"></script>
 </body>
 </html>
