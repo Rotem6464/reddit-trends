@@ -1,0 +1,10 @@
+
+node_modules/
+
+subscriptions.db
+
+.env
+
+
+.DS_Store
+

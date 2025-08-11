@@ -1,0 +1,103 @@
+const express = require('express');
+const cors = require('cors');
+const fetch = require('node-fetch');
+const path = require('path');
+const sqlite3 = require('sqlite3').verbose();
+const crypto = require('crypto');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(cors());
+app.use(express.json());
+app.use(express.static('public'));
+
+// Initialize database
+const db = new sqlite3.Database('subscriptions.db');
+db.serialize(() => {
+    db.run(`CREATE TABLE IF NOT EXISTS subscriptions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT UNIQUE,
+        subreddit TEXT,
+        timeframe TEXT DEFAULT 'week',
+        confirmed BOOLEAN DEFAULT 0,
+        confirmation_token TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+});
+
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.get('/api/trending/:subreddit', async (req, res) => {
+    const subreddit = req.params.subreddit;
+    const timeframe = req.query.timeframe || 'week';
+    
+    try {
+        const url = `https://www.reddit.com/r/${subreddit}/top.json?t=${timeframe}&limit=25`;
+        const response = await fetch(url, {
+            headers: {
+                'User-Agent': 'TrendingRedditApp/1.0'
+            }
+        });
+        
+        const data = await response.json();
+        const posts = data.data.children.map(post => ({
+            title: post.data.title,
+            score: post.data.score,
+            author: post.data.author,
+            url: post.data.url,
+            permalink: `https://reddit.com${post.data.permalink}`,
+            created: post.data.created_utc,
+            num_comments: post.data.num_comments
+        }));
+        
+        res.json(posts);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/subscribe', (req, res) => {
+    const { email, subreddit, timeframe } = req.body;
+    
+    if (!email || !subreddit) {
+        return res.status(400).json({ error: 'Email and subreddit are required' });
+    }
+    
+    const confirmationToken = crypto.randomBytes(32).toString('hex');
+    
+    db.run('INSERT OR REPLACE INTO subscriptions (email, subreddit, timeframe, confirmed, confirmation_token) VALUES (?, ?, ?, 0, ?)',
+        [email, subreddit, timeframe || 'week', confirmationToken], function(err) {
+            if (err) {
+                res.status(500).json({ error: 'Failed to subscribe' });
+            } else {
+                const confirmUrl = `http://localhost:${PORT}/api/confirm/${confirmationToken}`;
+                console.log(`Confirmation link for ${email}: ${confirmUrl}`);
+                res.json({ 
+                    message: 'Please check your email to confirm subscription!',
+                    demoLink: confirmUrl
+                });
+            }
+        });
+});
+
+app.get('/api/confirm/:token', (req, res) => {
+    const token = req.params.token;
+    
+    db.run('UPDATE subscriptions SET confirmed = 1 WHERE confirmation_token = ?', [token], function(err) {
+        if (err || this.changes === 0) {
+            res.send('<h1>Invalid confirmation link</h1>');
+        } else {
+            res.send(`
+                <h1>✅ Subscription Confirmed!</h1>
+                <p>You will now receive daily updates with top Reddit posts.</p>
+                <p><a href="http://localhost:${PORT}">← Back to Reddit Trends</a></p>
+            `);
+        }
+    });
+});
+
+app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`
