@@ -435,6 +435,7 @@ app.get('/api/trending/:subreddit', async (req, res) => {
 });
 
 // ---------- Subscriptions ----------
+// ---------- Subscriptions ----------
 app.post('/api/subscribe', async (req, res) => {
   const { email, subreddit, timeframe } = req.body || {};
   if (!email || !subreddit) return res.status(400).json({ error: 'Email and subreddit are required' });
@@ -449,18 +450,36 @@ app.post('/api/subscribe', async (req, res) => {
       [email, subreddit, timeframe || 'week', token]
     );
 
-    const confirmUrl = `${PUBLIC_BASE}/api/confirm/${token}`;
-    const subject = `Confirm your subscription to r/${subreddit} (${timeframe || 'week'})`;
-    const text = `Click to confirm: ${confirmUrl}`;
-    const html = `<p>Confirm your subscription to <b>r/${subreddit}</b> (${timeframe || 'week'}).</p><p><a href="${confirmUrl}">Confirm subscription</a></p>`;
+    const confirmUrl = `${PUBLIC_BASE.replace(/\/$/,'')}/api/confirm/${token}`;
+
+    // ✉️ Your new subject + body
+    const subject = `Welcome to Reddit top posts digest`;
+    const text =
+`Thanks for joining the service!
+You can check out any time you like but you can never leave.
+
+Confirm your email to start receiving the digest:
+${confirmUrl}`;
+
+    const html = `
+<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.45">
+  <h2 style="margin:0 0 12px">Welcome to Reddit top posts digest</h2>
+  <p>Thanks for joining the service, <em>you can check out any time you like but you can never leave</em>.</p>
+  <p><a href="${confirmUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:10px 14px;border-radius:6px;text-decoration:none">Confirm your email</a></p>
+  <p style="font-size:12px;color:#666;margin-top:16px">
+    If you didn’t request this, you can safely ignore this email.
+  </p>
+</div>`.trim();
 
     await sendEmail({ to: email, subject, html, text });
+
     res.json({ message: 'Please check your email to confirm subscription!' });
   } catch (err) {
     console.error('Subscribe error:', err);
     res.status(500).json({ error: 'Failed to subscribe' });
   }
 });
+
 
 app.get('/api/confirm/:token', async (req, res) => {
   const token = req.params.token;
