@@ -1,146 +1,91 @@
-document.addEventListener('DOMContentLoaded', function() {
-    const subredditInput = document.getElementById('subredditInput');
-    const timeframeSelect = document.getElementById('timeframeSelect');
-    const searchBtn = document.getElementById('searchBtn');
-    const loading = document.getElementById('loading');
-    const results = document.getElementById('results');
-    
-    const emailInput = document.getElementById('emailInput');
-    const subscribeBtn = document.getElementById('subscribeBtn');
-    const subscribeMessage = document.getElementById('subscribeMessage');
+// public/script.js
+const form = document.getElementById('search-form');
+const input = document.getElementById('subreddit-input');
+const timeframeSel = document.getElementById('timeframe');
+const results = document.getElementById('results');
+const statusEl = document.getElementById('status');
 
-    searchBtn.addEventListener('click', fetchTrendingPosts);
-    subscribeBtn.addEventListener('click', subscribeToUpdates);
-    
-    subredditInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            fetchTrendingPosts();
-        }
-    });
+function setStatus(msg) {
+  statusEl.textContent = msg || '';
+}
+function renderPosts(items) {
+  results.innerHTML = '';
+  if (!items || !items.length) {
+    results.innerHTML = '<li>No posts found.</li>';
+    return;
+  }
+  // cap to top 5 for the UI
+  const top = items.slice(0, 5);
+  for (const p of top) {
+    const li = document.createElement('li');
 
-    // Load default subreddit on page load
-    fetchTrendingPosts();
+    const a = document.createElement('a');
+    a.href = p.permalink || p.url || '#';
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.textContent = p.title || '(no title)';
+    li.appendChild(a);
 
-    async function fetchTrendingPosts() {
-        const subreddit = subredditInput.value.trim();
-        const timeframe = timeframeSelect.value;
+    const metaBits = [];
+    if (p.author) metaBits.push(`u/${p.author}`);
+    if (Number.isFinite(p.score)) metaBits.push(`score ${p.score}`);
+    if (Number.isFinite(p.num_comments)) metaBits.push(`${p.num_comments} comments`);
 
-        if (!subreddit) {
-            alert('Please enter a subreddit name');
-            return;
-        }
-
-        loading.style.display = 'block';
-        results.innerHTML = '';
-        searchBtn.disabled = true;
-        searchBtn.textContent = 'Loading...';
-
-        try {
-            const response = await fetch(`/api/trending/${subreddit}?timeframe=${timeframe}`);
-            const posts = await response.json();
-
-            if (!response.ok) {
-                throw new Error(posts.error || 'Failed to fetch posts');
-            }
-
-            displayPosts(posts);
-        } catch (error) {
-            results.innerHTML = `<div style="color: white; text-align: center; padding: 20px;">
-                Error: ${error.message}
-            </div>`;
-        } finally {
-            loading.style.display = 'none';
-            searchBtn.disabled = false;
-            searchBtn.textContent = 'Get Trending Posts';
-        }
+    if (metaBits.length) {
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      meta.textContent = metaBits.join(' • ');
+      li.appendChild(meta);
     }
 
-    async function subscribeToUpdates() {
-        const email = emailInput.value.trim();
-        const subreddit = subredditInput.value.trim();
-        const timeframe = timeframeSelect.value;
+    results.appendChild(li);
+  }
+}
 
-        if (!email) {
-            showSubscribeMessage('Please enter your email address', 'error');
-            return;
-        }
+async function resolveCanonical(name) {
+  const res = await fetch(`/api/resolve/${encodeURIComponent(name)}`, { credentials: 'omit' });
+  if (!res.ok) {
+    const j = await res.json().catch(() => ({}));
+    throw new Error(j?.reason || `resolve failed: ${res.status}`);
+  }
+  return res.json();
+}
 
-        if (!subreddit) {
-            showSubscribeMessage('Please enter a subreddit name first', 'error');
-            return;
-        }
+async function fetchTrending(canonical, timeframe) {
+  const res = await fetch(`/api/trending/${encodeURIComponent(canonical)}?timeframe=${encodeURIComponent(timeframe)}`, { credentials: 'omit' });
+  if (!res.ok) {
+    const j = await res.json().catch(() => ({}));
+    const errMsg = j?.error || `trending failed: ${res.status}`;
+    throw new Error(errMsg);
+  }
+  return res.json();
+}
 
-        subscribeBtn.disabled = true;
-        subscribeBtn.textContent = 'Subscribing...';
+// IMPORTANT: no auto-load on page open.
+// Only run when user submits the form.
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  setStatus('');
+  results.innerHTML = '';
 
-        try {
-            const response = await fetch('/api/subscribe', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    email: email,
-                    subreddit: subreddit,
-                    timeframe: timeframe
-                })
-            });
+  const raw = input.value.trim().replace(/^r\//i, '');
+  const timeframe = timeframeSel?.value || 'day';
+  if (!raw) return;
 
-            const result = await response.json();
+  try {
+    setStatus('Resolving subreddit…');
+    const info = await resolveCanonical(raw);
 
-            if (!response.ok) {
-                throw new Error(result.error || 'Failed to subscribe');
-            }
+    // Show users the canonical casing for clarity
+    input.value = info.canonical;
 
-            showSubscribeMessage(`Successfully subscribed to r/${subreddit}!`, 'success');
-            emailInput.value = '';
-        } catch (error) {
-            showSubscribeMessage(`Error: ${error.message}`, 'error');
-        } finally {
-            subscribeBtn.disabled = false;
-            subscribeBtn.textContent = 'Subscribe';
-        }
-    }
+    setStatus(`Fetching ${timeframe} posts from r/${info.canonical}…`);
+    const posts = await fetchTrending(info.canonical, timeframe);
 
-    function showSubscribeMessage(message, type) {
-        subscribeMessage.textContent = message;
-        subscribeMessage.className = `subscribe-message ${type}`;
-        subscribeMessage.style.display = 'block';
-        
-        setTimeout(() => {
-            subscribeMessage.style.display = 'none';
-        }, 5000);
-    }
-
-    function displayPosts(posts) {
-        if (posts.length === 0) {
-            results.innerHTML = '<div style="color: white; text-align: center;">No posts found</div>';
-            return;
-        }
-
-        results.innerHTML = posts.map(post => `
-            <div class="post">
-                <a href="${post.permalink}" target="_blank" class="post-title">
-                    ${post.title}
-                </a>
-                <div class="post-meta">
-                    <span class="score">↑ ${post.score}</span>
-                    <span>💬 ${post.num_comments} comments</span>
-                    <span>👤 u/${post.author}</span>
-                    <span>🕒 ${formatTime(post.created)}</span>
-                </div>
-            </div>
-        `).join('');
-    }
-
-    function formatTime(timestamp) {
-        const date = new Date(timestamp * 1000);
-        const now = new Date();
-        const diff = now - date;
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        
-        if (days === 0) return 'Today';
-        if (days === 1) return '1 day ago';
-        return `${days} days ago`;
-    }
+    renderPosts(posts);
+    setStatus(`Showing top 5 from r/${info.canonical}`);
+  } catch (err) {
+    setStatus(err.message);
+    results.innerHTML = `<li class="error">${err.message}</li>`;
+  }
 });
