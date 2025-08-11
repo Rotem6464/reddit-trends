@@ -7,27 +7,65 @@ services:
     startCommand: "node server.js"
     autoDeploy: true
     envVars:
-      # DATABASE_URL will be injected from the database below
       - key: DATABASE_URL
         fromDatabase:
           name: reddit-trends-db
           property: connectionString
 
-      # Email (SMTP). Fill real values in Render after deploy; PASS stays secret.
+      # Email (Gmail in your case)
       - key: SMTP_HOST
-        value: smtp.sendgrid.net
+        value: smtp.gmail.com
       - key: SMTP_PORT
         value: "587"
       - key: SMTP_USER
-        value: apikey
+        value: rotemleffler@gmail.com
       - key: SMTP_PASS
-        sync: false         # set this secret in the Render dashboard
+        sync: false            # set in Render UI
       - key: FROM_EMAIL
-        value: you@yourdomain.com
+        value: rotemleffler@gmail.com
 
-      # Will update to your live URL after first deploy (ok to keep placeholder now)
+      # Public URL of your web service (no trailing slash)
       - key: BASE_URL
-        value: https://your-app.onrender.com
+        value: https://reddit-trends.onrender.com
+
+      # (Optional) Reddit OAuth — improves reliability & shows scores/comments
+      - key: REDDIT_CLIENT_ID
+        sync: false            # set in Render UI (if you use OAuth)
+      - key: REDDIT_CLIENT_SECRET
+        sync: false            # set in Render UI (if you use OAuth)
+
+  - type: cron
+    name: reddit-trends-digest
+    env: node
+    plan: free
+    buildCommand: "npm install"
+    command: "node cron.js"
+    # Runs daily at 08:00 Asia/Jerusalem (UTC+3 in summer → 05:00 UTC)
+    schedule: "0 5 * * *"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: reddit-trends-db
+          property: connectionString
+
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        value: rotemleffler@gmail.com
+      - key: SMTP_PASS
+        sync: false            # set in Render UI for the CRON service too
+      - key: FROM_EMAIL
+        value: rotemleffler@gmail.com
+
+      - key: BASE_URL
+        value: https://reddit-trends.onrender.com
+
+      - key: REDDIT_CLIENT_ID
+        sync: false            # set in Render UI (if you use OAuth)
+      - key: REDDIT_CLIENT_SECRET
+        sync: false            # set in Render UI (if you use OAuth)
 
 databases:
   - name: reddit-trends-db
