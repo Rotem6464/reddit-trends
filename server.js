@@ -198,7 +198,7 @@ async function fetchPosts(canonical, timeframe) {
     if (status === 200 && json?.data?.children?.length) {
       return {
         ok: true,
-        posts: json.data.children.map(p => ({
+        posts: json.data.children.slice(0, 5).map(p => ({
           title: p.data.title,
           score: p.data.score,
           author: p.data.author,
@@ -219,7 +219,7 @@ async function fetchPosts(canonical, timeframe) {
   if (rssRes.status === 200 && /<(entry|item)\b/i.test(rssRes.text)) {
     // Parse Atom
     const entries = [...rssRes.text.matchAll(/<entry>[\s\S]*?<\/entry>/g)];
-    const posts = entries.slice(0, 25).map(e => {
+    const posts = entries.slice(0, 5).map(e => {
       const b = e[0];
       const title = (b.match(/<title[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i) || [,''])[1].trim();
       const link = (b.match(/<link[^>]*href="([^"]+)"/i) || [,''])[1];
@@ -245,7 +245,7 @@ async function fetchPosts(canonical, timeframe) {
   const htmlUrl = `https://old.reddit.com/r/${canonical}/top/?t=${encodeURIComponent(timeframe)}`;
   const htmlRes = await fetchText(htmlUrl);
   if (htmlRes.status === 200) {
-    const posts = parseTopFromOldRedditHTML(htmlRes.text, 25);
+    const posts = parseTopFromOldRedditHTML(htmlRes.text, 5);
     if (posts.length) {
       return { ok: true, posts: posts.map(p => ({ ...p, source: 'html' })), used: htmlUrl };
     }
