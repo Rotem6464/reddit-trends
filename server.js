@@ -28,6 +28,13 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
+// serve /script.js and /style.css
+app.use(express.static(path.join(__dirname, 'public')));
+
+// ALSO serve /public/script.js and /public/style.css (your HTML references this style)
+app.use('/public', express.static(path.join(__dirname, 'public')));
+
+
 // avoid noisy favicon 404s
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 
